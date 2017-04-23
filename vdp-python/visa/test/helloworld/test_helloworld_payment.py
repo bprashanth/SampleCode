@@ -19,23 +19,11 @@ class TestCybersourcePayment(unittest.TestCase):
 
     def setUp(self):
         self.visa_api_client = VisaAPIClient()
-        self.payment_authorization_request = json.loads('''{
-        "amount": "0",
-        "currency": "USD",
-        "payment": {
-          "cardNumber": "4111111111111111",
-          "cardExpirationMonth": "10",
-          "cardExpirationYear": "2020"
-        }
-    }''')
 
     def test_cybersource_payment_authorization(self):
-        base_uri = 'cybersource/'
-        resource_path = 'payments/v1/authorizations'
+        base_uri = 'vdp/'
+        resource_path = 'helloworld'
         query_string = 'apikey=' + self.config.get('VDP','apiKey')
-        response = self.visa_api_client.do_x_pay_request(base_uri, resource_path , query_string, self.payment_authorization_request, 'Cybersource Payments Test', 'post')
-        self.assertEqual(str(response.status_code) ,"201" ,"Cybersource payments test failed")
+        response = self.visa_api_client.do_x_pay_request(base_uri, resource_path , query_string, '', 'Cybersource Payments Test', 'get')
+        self.assertEqual(str(response.status_code) ,"200" ,"Helloworld test failed")
         pass
-
-
-

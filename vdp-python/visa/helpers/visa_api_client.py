@@ -19,11 +19,11 @@ import calendar
 '''
 
 class VisaAPIClient:
-    
+
     config = parser.ConfigParser()
     config_path = os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(__file__)),'configuration.ini'))
     config.read(config_path)
-    
+
     logging.getLogger('').addHandler(logging.StreamHandler())
     log = logging.getLogger('VisaAPIClient')
 
@@ -32,18 +32,18 @@ class VisaAPIClient:
 
     def _get_mutual_auth_session(self, user_name, password, cert, key):
         return MSession(user_name, password, cert, key)
-    
+
     """
        Correlation Id ( ex-correlation-id ) is an optional header while making an API call. You can skip passing the header while calling the API's.
     """
     def _get_correlation_id(self):
-        size = 12 
+        size = 12
         chars = string.digits
         correlationId = ''.join(random.choice(chars) for _ in range(size)) + '_SC'
         return correlationId
-    
+
     def _logging_helper(self, url, response, test_info, body):
-        
+
         self.log.info(test_info)
         self.log.info(url)
         if body !='':
@@ -55,7 +55,7 @@ class VisaAPIClient:
         self.log.info("Response Body : ")
         if response.text != '':
             self.log.info(json.dumps(json.loads(response.text), indent=4, sort_keys=True))
-        
+
     def do_mutual_auth_request(self, path, body, test_info, method_type, input_headers={}):
         user_name = self.config.get('VDP','userId')
         password= self.config.get('VDP','password')
@@ -73,40 +73,44 @@ class VisaAPIClient:
                          'accept': 'application/json',
                          'x-correlation-id' : self._get_correlation_id()})
             if method_type == 'post' :
-                response = self.session.post(url, json = body, timeout = 10)
+                response = self.session.post(url, body, timeout = 10)
             if method_type == 'put' :
-                response = self.session.put(url, json = body, timeout = 10)
+                response = self.session.put(url, body, timeout = 10)
             self._logging_helper(url, response, test_info, body)
         elif method_type == 'get':
             self.session.headers.update({'accept': 'application/json','ex-correlation-id' : self._get_correlation_id()})
             response = self.session.get(url, timeout = 10)
             self._logging_helper(url, response, test_info, '')
         return response
-        
+
     def do_x_pay_request(self, base_uri, resource_path, query_string, body, test_info, method_type, input_headers={}):
         shared_secret = self.config.get('VDP','sharedSecret')
         end_point = self.config.get('VDP','visaUrl')
         url = end_point +  base_uri + resource_path + '?'+ query_string
         self.log.info(url)
         response = {}
+        body=json.dumps(body)
         if method_type == 'get' :
             self.session = self._get_x_pay_session(shared_secret, resource_path, query_string, '')
         else :
-            self.session = self._get_x_pay_session(shared_secret, resource_path, query_string, json.dumps(body))
+            self.session = self._get_x_pay_session(shared_secret, resource_path, query_string, body)
         if input_headers:
             self.log.info(input_headers)
             for key in input_headers.keys():
                 self.session.headers[key] = input_headers[key]
         if method_type == 'post' or method_type == 'put':
-            self.session.headers.update({'content-type': 'application/json',
+            request_headers = {'content-type': 'application/json',
                                 'accept': 'application/json',
                                 'x-pay-token' : self.session.x_pay_token,
-                                'ex-correlation-id' : self._get_correlation_id()})
+                                'ex-correlation-id' : self._get_correlation_id()}
+            self.log.info('request headers: %s' % request_headers)
+            self.log.info('body: %s' % body)
+            self.session.headers.update(request_headers)
             if method_type == 'post' :
-                response = self.session.post(url, json = body, timeout = 10)
+                response = self.session.post(url, body, timeout = 10)
             if method_type == 'put' :
-                response = self.session.put(url, json = body, timeout = 10)
-            self._logging_helper(url, response, test_info, body)        
+                response = self.session.put(url, body, timeout = 10)
+            self._logging_helper(url, response, test_info, body)
         elif method_type == 'get':
             self.session.headers.update({
                                 'x-pay-token' : self.session.x_pay_token,
@@ -114,12 +118,12 @@ class VisaAPIClient:
             response = self.session.get(url, timeout = 10)
             self._logging_helper(url, response, test_info, '')
         return response
-        
+
 class XSession(requests.Session):
     """ Requests Session for xpaytoken apis
         Construct as XSession(apikey, shared_secret), usage same as
         requests.Session
-    """    
+    """
     def _get_timestamp(self):
         d = datetime.datetime.utcnow()
         timestamp = calendar.timegm(d.timetuple())
@@ -148,4 +152,4 @@ class MSession(requests.Session):
     def __init__(self, username, password, cert, key):
         super(MSession, self).__init__()
         self.cert = (cert, key)
-        self.auth = (username, password)        
+        self.auth = (username, password)
